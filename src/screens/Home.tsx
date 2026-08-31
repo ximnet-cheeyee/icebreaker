@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Gamepad2, Users } from 'lucide-react'
 import { getSavedSession } from '../lib/useLocalIdentity'
 import * as gameService from '../supabase/gameService'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 export function Home() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'menu' | 'join'>('menu')
+  const [searchParams] = useSearchParams()
+  const roomFromUrl = searchParams.get('room')?.toUpperCase() ?? ''
+  const [mode, setMode] = useState<'menu' | 'join'>(roomFromUrl ? 'join' : 'menu')
   const [name, setName] = useState(getSavedSession().name ?? '')
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(roomFromUrl)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -38,10 +40,16 @@ export function Home() {
     }
   }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-950 via-slate-950 to-black text-white px-6">
-      <div className="text-center mb-10">
-        <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+    return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center text-white px-6 animate-gradient-bg"
+      style={{
+        backgroundImage:
+          'linear-gradient(120deg, #1e1b4b, #0f172a, #1e1b4b, #030712)',
+      }}
+    >
+      <div className="text-center mb-10 animate-fade-rise">
+        <h1 className="text-6xl font-black tracking-tight text-white drop-shadow-[0_4px_0_rgba(6,182,212,0.4)]">
           ICEBREAKER
         </h1>
         <p className="text-white/50 mt-2 tracking-widest text-sm uppercase">Find the target. Trust no one.</p>
@@ -53,14 +61,16 @@ export function Home() {
             type="button"
             disabled={busy}
             onClick={handleCreate}
-            className="flex items-center justify-center gap-3 py-5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-lg shadow-lg shadow-blue-900/50 active:scale-95 transition-transform disabled:opacity-50"
+            style={{ animationDelay: '0.1s' }}
+            className="animate-fade-rise flex items-center justify-center gap-3 py-5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-lg shadow-lg shadow-blue-900/50 hover:shadow-cyan-500/40 hover:brightness-110 active:scale-95 transition-all"
           >
             <Gamepad2 size={24} /> CREATE GAME
           </button>
           <button
             type="button"
             onClick={() => setMode('join')}
-            className="flex items-center justify-center gap-3 py-5 rounded-2xl bg-white/10 border border-white/20 font-bold text-lg active:scale-95 transition-transform"
+            style={{ animationDelay: '0.2s' }}
+            className="animate-fade-rise flex items-center justify-center gap-3 py-5 rounded-2xl bg-white/10 border border-white/20 font-bold text-lg hover:bg-white/15 hover:border-white/30 active:scale-95 transition-all"
           >
             <Users size={24} /> JOIN GAME
           </button>

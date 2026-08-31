@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../supabase/client'
 import * as gameService from '../supabase/gameService'
 import { GameGrid } from '../components/GameGrid'
@@ -12,6 +12,7 @@ import type { MatchConfig, Position } from '../game/gameTypes'
 
 interface MatchRow {
   id: string
+  room_id: string
   mode: string
   config: MatchConfig
   saboteur_player_id: string | null
@@ -29,6 +30,7 @@ interface GameStateRow {
 const SPEEDS = [0.5, 1, 2, 4]
 
 export function Replay() {
+    const navigate = useNavigate()
   const { matchId } = useParams<{ matchId: string }>()
 
   const [match, setMatch] = useState<MatchRow | null>(null)
@@ -183,6 +185,23 @@ export function Replay() {
         <h1 className="text-3xl font-black">
           Reminisce
         </h1>
+
+        <div className="flex gap-3">
+        <button
+            type="button"
+            onClick={() => navigate(`/history/${match.room_id}`)}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 font-bold text-sm"
+        >
+            ← Match History
+        </button>
+        <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-sm"
+        >
+            🏠 New Game
+        </button>
+        </div>
 
         {states.length > 1 && (
           <div className="flex gap-2 flex-wrap justify-center">
@@ -344,17 +363,40 @@ export function Replay() {
 
         {saboteurName &&
           index === events.length - 1 && (
-            <div className="mt-4 text-center animate-pulse">
-              <p className="text-white/50 uppercase tracking-widest text-sm">
-                The Saboteur was...
-              </p>
-
-              <p className="text-4xl font-black text-purple-400">
-                {saboteurName}
-              </p>
-            </div>
+            <SaboteurReveal name={saboteurName} />
           )}
       </div>
+    </div>
+  )
+}
+
+function SaboteurReveal({ name }: { name: string }) {
+  const [count, setCount] = useState<number | null>(3)
+
+  useEffect(() => {
+    if (count === null) return
+    if (count === 0) {
+      const t = setTimeout(() => setCount(null), 200)
+      return () => clearTimeout(t)
+    }
+    const t = setTimeout(() => setCount((c) => (c ?? 1) - 1), 700)
+    return () => clearTimeout(t)
+  }, [count])
+
+  return (
+    <div className="mt-4 text-center min-h-[100px] flex flex-col items-center justify-center">
+      <p className="text-white/50 uppercase tracking-widest text-sm mb-2">
+        The Saboteur was...
+      </p>
+      {count !== null && count > 0 ? (
+        <p key={count} className="text-5xl font-black text-white/80 animate-fade-in-fast">
+          {count}
+        </p>
+      ) : (
+        <p className="text-5xl font-black text-purple-400 animate-celebrate drop-shadow-[0_0_25px_rgba(168,85,247,0.6)]">
+          {name}
+        </p>
+      )}
     </div>
   )
 }

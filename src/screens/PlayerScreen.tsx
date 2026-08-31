@@ -28,9 +28,11 @@ export function PlayerScreen() {
   } = useGame(code ?? null)
 
   const [name, setName] = useState(nameFromUrl)
+  const autoJoinAttempted = useRef(false)
   const lastStatusRef = useRef<string | null>(null)
 
   // --- all hooks live above any early return ---
+
 
   useEffect(() => {
     if (!room) return
@@ -76,13 +78,38 @@ export function PlayerScreen() {
       vibrate(200)
     }
   }, [myGameState])
-
+  const [joinError, setJoinError] = useState<string | null>(null)
   const handleJoin = async () => {
-    if (!code || !name.trim()) return
-
+  if (!code || !name.trim()) return
+  try {
     await joinRoom(code, name.trim())
     saveSession(name.trim(), code)
+  } catch (e) {
+    if (e instanceof Error && e.message === 'DUPLICATE_NAME') {
+      setJoinError('That name is taken in this room — try adding an initial.')
+    } else {
+      setJoinError('Could not join. Check the room code.')
+    }
   }
+}
+  
+useEffect(() => {
+  if (autoJoinAttempted.current) return
+
+  if (!nameFromUrl.trim() || !code || me || loading) return
+
+  autoJoinAttempted.current = true
+
+  const timer = setTimeout(() => {
+    handleJoin()
+  }, 0)
+
+  return () => clearTimeout(timer)
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [nameFromUrl, code, me, loading])
+
+  const [shakeGrid, setShakeGrid] = useState(false)
 
   const handleMove = async (dir: Direction) => {
     if (!myGameState) return
@@ -95,6 +122,8 @@ export function PlayerScreen() {
       case 'BOUNDARY_STRIKE':
         AudioManager.playSfx('boundary')
         vibrate(60)
+        setShakeGrid(true)
+        setTimeout(() => setShakeGrid(false), 400)
         break
 
       case 'TRAP_TRIGGERED':
@@ -144,6 +173,8 @@ export function PlayerScreen() {
             maxLength={20}
             className="py-4 px-5 rounded-xl bg-white/10 border border-white/20 text-lg placeholder-white/30 outline-none focus:border-cyan-400"
           />
+
+          {joinError && <p className="text-red-400 text-sm text-center">{joinError}</p>}
 
           <button
             type="button"
@@ -235,7 +266,7 @@ export function PlayerScreen() {
 
   if (match.mode === 'HIDDEN_SABOTEUR') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-black text-white flex flex-col items-center justify-center gap-6 p-6">
+      <div className="min-h-screen bg-gradient-to-b from-purple-950/40 via-slate-950 to-black text-white flex flex-col items-center justify-center gap-6 p-6">
         <AudioToggle />
 
         <GlitchBanner
@@ -247,10 +278,12 @@ export function PlayerScreen() {
           }
         />
 
-        {finished ? (
-          <p className="text-2xl font-black">
-            {myGameState.status.replace('_', ' ')}
-          </p>
+          {finished ? (
+          <div className="animate-celebrate text-center">
+            <p className={`text-4xl font-black ${myGameState.status === 'TARGET_FOUND' ? 'text-yellow-300 drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]' : 'text-white/70'}`}>
+              {myGameState.status === 'TARGET_FOUND' ? '🎉 TARGET FOUND!' : myGameState.status.replace('_', ' ')}
+            </p>
+          </div>
         ) : isMyTurn ? (
           <>
             <p className="text-2xl font-black text-cyan-400">
@@ -260,15 +293,14 @@ export function PlayerScreen() {
             <DPad onMove={handleMove} />
           </>
         ) : (
-          <>
+          <div key={currentPlayerId} className="animate-fade-in-fast text-center">
             <p className="text-white/50 uppercase tracking-widest text-sm">
               Waiting for
             </p>
-
-            <p className="text-3xl font-black">
+            <p className="text-3xl font-black animate-pulse">
               {currentPlayerName}
             </p>
-          </>
+          </div>
         )}
 
         {isSaboteur && (
@@ -278,6 +310,7 @@ export function PlayerScreen() {
             </p>
 
             <GameGrid
+            shake={shakeGrid}
               gridSize={match.config.gridSize}
               token={myGameState.token}
               target={myGameState.target}
@@ -315,9 +348,11 @@ export function PlayerScreen() {
       </p>
 
       {finished ? (
-        <p className="text-2xl font-black">
-          {myGameState.status.replace('_', ' ')}
-        </p>
+          <div className="animate-celebrate text-center">
+            <p className={`text-4xl font-black ${myGameState.status === 'TARGET_FOUND' ? 'text-yellow-300 drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]' : 'text-white/70'}`}>
+              {myGameState.status === 'TARGET_FOUND' ? '🎉 TARGET FOUND!' : myGameState.status.replace('_', ' ')}
+            </p>
+          </div>
       ) : isBoardMover ? (
         <>
           <p className="text-cyan-400 font-bold uppercase tracking-widest text-sm">
@@ -332,6 +367,7 @@ export function PlayerScreen() {
           </p>
 
           <GameGrid
+          shake={shakeGrid}
             gridSize={match.config.gridSize}
             token={myGameState.token}
             target={myGameState.target}
@@ -354,15 +390,14 @@ export function PlayerScreen() {
           </p>
         </>
       ) : (
-        <>
+        <div key={currentPlayerId} className="animate-fade-in-fast text-center">
           <p className="text-white/50 uppercase tracking-widest text-sm">
             Waiting for
           </p>
-
-          <p className="text-3xl font-black">
+          <p className="text-3xl font-black animate-pulse">
             {currentPlayerName}
           </p>
-        </>
+        </div>
       )}
     </div>
   )

@@ -45,20 +45,20 @@ an internal game with no accounts; see section 8 for the security tradeoffs.
 `AudioManager.ts` expects files at these exact paths under `public/`:
 
 ```
-public/audio/bgm/lobby.mp3
-public/audio/bgm/gameplay.mp3
-public/audio/bgm/suspense.mp3
-public/audio/bgm/victory.mp3
-public/audio/sfx/button.mp3
-public/audio/sfx/move.mp3
-public/audio/sfx/boundary.mp3
-public/audio/sfx/trap.mp3
-public/audio/sfx/stun.mp3
-public/audio/sfx/glitch.mp3
-public/audio/sfx/target-found.mp3
-public/audio/sfx/countdown.mp3
-public/audio/sfx/reveal.mp3
-public/audio/sfx/saboteur-reveal.mp3
+public/audio/bgm/lobby.ogg
+public/audio/bgm/gameplay.ogg
+public/audio/bgm/suspense.ogg
+public/audio/bgm/victory.ogg
+public/audio/sfx/button.ogg
+public/audio/sfx/move.ogg
+public/audio/sfx/boundary.ogg
+public/audio/sfx/trap.ogg
+public/audio/sfx/stun.ogg
+public/audio/sfx/glitch.ogg
+public/audio/sfx/target-found.ogg
+public/audio/sfx/countdown.ogg
+public/audio/sfx/reveal.ogg
+public/audio/sfx/saboteur-reveal.ogg
 ```
 
 Free CC0 sources: **pixabay.com/music**, **pixabay.com/sound-effects**, **kenney.nl**

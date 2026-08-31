@@ -1,1 +1,74 @@
 ﻿@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono-game: "Rajdhani", ui-monospace, monospace;
+}
+
+/* ADD near the top, after @theme block */
+.theme-lobby { --stage-accent: #22d3ee; }
+.theme-active { --stage-accent: #fbbf24; }
+.theme-saboteur { --stage-accent: #a855f7; }
+
+body {
+  font-family: var(--font-display);
+}
+
+/* Animated gradient background — use on Home/lobby screens */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient-bg {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Fade+rise entrance for cards/buttons */
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-rise {
+  animation: fade-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Turn/state swap fade, keyed by content */
+@keyframes fade-in-fast {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in-fast {
+  animation: fade-in-fast 0.25s ease-out both;
+}
+
+/* Cell "just moved into" pulse ring */
+@keyframes cell-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+  100% { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
+}
+.animate-cell-pulse {
+  animation: cell-pulse 0.6s ease-out;
+}
+
+/* Victory celebration burst */
+@keyframes celebrate-pop {
+  0% { transform: scale(0.6) rotate(-3deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.animate-celebrate {
+  animation: celebrate-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Boundary strike shake */
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+.animate-shake {
+  animation: shake-x 0.4s ease-in-out;
+}

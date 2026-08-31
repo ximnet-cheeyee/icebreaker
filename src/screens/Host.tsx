@@ -9,7 +9,7 @@ import type { GameMode, MatchConfig, TargetMode } from '../game/gameTypes'
 import { GlitchBanner } from '../components/GlitchBanner'
 import { AudioManager } from '../lib/AudioManager'
 import { AudioToggle } from '../components/AudioToggle'
-
+import { directionArrow as directionArrowFor } from '../game/gameUtils'
 const DEFAULT_CONFIG: MatchConfig = {
   mode: 'BLIND_NAVIGATOR',
   gridSize: 10,
@@ -26,20 +26,36 @@ const DEFAULT_CONFIG: MatchConfig = {
 export function Host() {
   const { code } = useParams<{ code: string }>()
 
-  const {
-    room,
-    players,
-    match,
-    gameStates,
-    loading,
-    error,
-    refresh,
-  } = useGame(code ?? null)
+  const { room, players, match, gameStates, loading, error, refresh, recentEvents } = useGame(code ?? null)
 
   const [config, setConfig] = useState<MatchConfig>(DEFAULT_CONFIG)
   const [busy, setBusy] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   const navigate = useNavigate()
+
+  // Teams currently assigned on players (only meaningful for Blind Navigator)
+  const teamsPresent = [
+    ...new Set(players.map((p) => p.team_id).filter(Boolean)),
+  ] as string[]
+
+  const notEnoughPlayers =
+    config.mode === 'BLIND_NAVIGATOR' && players.length < config.numTeams
+
+  // BUG FIX: previously the Host could press START GAME before ever
+  // pressing "Shuffle Teams". team_id was null for every player, so
+  // startMatch() created zero game_states rows and the game looked
+  // completely stuck (blank board, no D-pad, nothing to interact with).
+  // We now require every player to have a team assigned, and that the
+  // number of distinct teams matches the configured team count, before
+  // Start is allowed for Blind Navigator.
+  const teamsNotReady =
+    config.mode === 'BLIND_NAVIGATOR' &&
+    (teamsPresent.length !== config.numTeams ||
+      players.some((p) => !p.team_id))
+
+  const canStart =
+    !busy && players.length > 0 && !notEnoughPlayers && !teamsNotReady
 
   useEffect(() => {
     if (!room) return
@@ -53,6 +69,14 @@ export function Host() {
     }
   }, [room, match])
 
+  useEffect(() => {
+    if (!match || gameStates.length === 0) return
+    const allDone = gameStates.every((gs) => gs.status !== 'ACTIVE')
+    if (allDone) {
+      gameService.endMatch(match.id).then(refresh)
+    }
+  }, [gameStates, match, refresh])
+
   if (loading) {
     return <Centered>Loading room…</Centered>
   }
@@ -63,11 +87,13 @@ export function Host() {
 
   const setMode = async (mode: GameMode) => {
     setConfig((c) => ({ ...c, mode }))
+    setStartError(null)
     await gameService.updateRoomMode(room.id, mode)
   }
 
   const handleShuffle = async () => {
     setBusy(true)
+    setStartError(null)
 
     try {
       await gameService.shuffleTeamsInRoom(room.id, config.numTeams)
@@ -86,12 +112,19 @@ export function Host() {
   }
 
   const handleStart = async () => {
+    if (!canStart) return
+
     setBusy(true)
+    setStartError(null)
 
     try {
       await gameService.startMatch(room.id, config.mode, config)
       AudioManager.playSfx('reveal')
       await refresh()
+    } catch (e) {
+      setStartError(
+        e instanceof Error ? e.message : 'Could not start the game. Please try again.',
+      )
     } finally {
       setBusy(false)
     }
@@ -107,14 +140,6 @@ export function Host() {
   // ---------- LOBBY ----------
 
   if (room.status === 'LOBBY') {
-    const teamsPresent = [
-      ...new Set(
-        players
-          .map((p) => p.team_id)
-          .filter(Boolean),
-      ),
-    ] as string[]
-
     return (
       <div className="min-h-screen bg-gradient-to-b from-indigo-950 via-slate-950 to-black text-white p-6">
         <AudioToggle />
@@ -228,12 +253,13 @@ export function Host() {
                       <ModeButton
                         key={n}
                         active={config.numTeams === n}
-                        onClick={() =>
+                        onClick={() => {
                           setConfig((c) => ({
                             ...c,
                             numTeams: n as 2 | 3 | 4,
                           }))
-                        }
+                          setStartError(null)
+                        }}
                       >
                         {n} Teams
                       </ModeButton>
@@ -266,13 +292,17 @@ export function Host() {
                   <button
                     type="button"
                     onClick={handleShuffle}
-                    disabled={
-                      busy || players.length === 0
-                    }
+                    disabled={busy || players.length === 0 || notEnoughPlayers}
                     className="mb-4 px-5 py-2 rounded-xl bg-white/10 border border-white/20 font-bold disabled:opacity-40"
                   >
                     Shuffle Teams
                   </button>
+
+                  {teamsPresent.length === 0 && !notEnoughPlayers && (
+                    <p className="text-amber-400 text-sm mb-3">
+                      Press "Shuffle Teams" before starting — nobody has a team yet.
+                    </p>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     {teamsPresent.map((teamId) => (
@@ -320,12 +350,28 @@ export function Host() {
               </>
             )}
 
+            {notEnoughPlayers && (
+              <p className="text-amber-400 text-sm text-center -mt-2">
+                Need at least {config.numTeams} players for {config.numTeams} teams.
+              </p>
+            )}
+
+            {!notEnoughPlayers && teamsNotReady && (
+              <p className="text-amber-400 text-sm text-center -mt-2">
+                Shuffle teams so every player has a team before starting.
+              </p>
+            )}
+
+            {startError && (
+              <p className="text-red-400 text-sm text-center -mt-2">
+                {startError}
+              </p>
+            )}
+
             <button
               type="button"
               onClick={handleStart}
-              disabled={
-                busy || players.length === 0
-              }
+              disabled={!canStart}
               className="w-full py-5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-black text-xl disabled:opacity-40"
             >
               START GAME
@@ -368,7 +414,7 @@ export function Host() {
 
   if (room.status === 'ACTIVE' && match) {
     return (
-      <div className="min-h-screen bg-black text-white p-8 flex flex-col items-center gap-8">
+      <div className="min-h-screen bg-gradient-to-b from-black via-amber-950/20 to-black text-white p-8 flex flex-col items-center gap-8">
         <AudioToggle />
 
         <GlitchBanner
@@ -378,66 +424,92 @@ export function Host() {
           enabled={match.config.reverseGlitchEnabled}
         />
 
-        <h1 className="text-4xl font-black tracking-wide">
+        <h1 className="text-5xl font-black tracking-wide bg-gradient-to-r from-cyan-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,255,255,0.15)]">
           FIND THE TARGET
         </h1>
 
         {match.config.victoryType === 'TIME_ATTACK' && (
           <Timer
-            startedAtMs={
-              new Date(match.started_at).getTime()
-            }
-            durationSeconds={
-              match.config.timeAttackSeconds
-            }
+            startedAtMs={new Date(match.started_at).getTime()}
+            durationSeconds={match.config.timeAttackSeconds}
+            onExpire={handleEnd}
             className="text-6xl"
           />
         )}
 
-        <div
-          className={`grid gap-6 w-full ${
-            gameStates.length > 2
-              ? 'grid-cols-2 md:grid-cols-3'
-              : 'grid-cols-1 md:grid-cols-2'
-          }`}
-        >
-          {gameStates.map((gs) => (
+        <div className="w-full max-w-3xl flex flex-col gap-1 min-h-[32px]">
+          {recentEvents.slice(0, 3).map((e) => (
             <div
-              key={gs.id}
-              className="rounded-2xl border-2 p-4"
-              style={{ borderColor: gs.color }}
+              key={e.event_id}
+              className="animate-fade-in-fast text-sm md:text-base text-white/80 bg-white/5 border border-white/10 rounded-lg px-4 py-1.5"
             >
-              <p
-                className="font-black text-xl mb-2"
-                style={{ color: gs.color }}
-              >
-                {gs.team_id === 'ALL'
-                  ? 'BOARD'
-                  : gs.team_id}
-
-                {gs.status !== 'ACTIVE' && (
-                  <span className="ml-2 text-sm text-white/60">
-                    ({gs.status})
-                  </span>
-                )}
-              </p>
-
-              <GameGrid
-                gridSize={match.config.gridSize}
-                token={gs.token}
-                target={gs.target}
-                traps={gs.traps}
-                showTarget={match.target_revealed}
-                showTraps={false}
-                color={gs.color}
-              />
-
-              <p className="text-sm text-white/50 mt-2">
-                Moves left: {gs.moves_remaining}
-              </p>
+              <span className="font-bold">{e.team_id !== 'ALL' ? `${e.team_id} — ` : ''}</span>
+              {e.player_name} {directionArrowFor(e.direction)} {e.result.replace('_', ' ')}
             </div>
           ))}
         </div>
+
+        {gameStates.length === 0 ? (
+          <div className="text-center text-white/50">
+            <p className="font-bold">No teams found for this match.</p>
+            <p className="text-sm mt-1">End the match and start again after shuffling teams.</p>
+          </div>
+        ) : (
+          <div
+            className={`grid gap-6 w-full ${
+              gameStates.length > 2
+                ? 'grid-cols-2 md:grid-cols-3'
+                : 'grid-cols-1 md:grid-cols-2'
+            }`}
+          >
+            {gameStates.map((gs) => (
+              <div
+                key={gs.id}
+                className="rounded-2xl border-2 p-4"
+                style={{ borderColor: gs.color }}
+              >
+                <p
+                  className="font-black text-xl mb-2"
+                  style={{ color: gs.color }}
+                >
+                  {gs.team_id === 'ALL'
+                    ? 'BOARD'
+                    : gs.team_id}
+
+                  {gs.status !== 'ACTIVE' && (
+                    <span className="ml-2 text-sm text-white/60">
+                      ({gs.status})
+                    </span>
+                  )}
+                </p>
+
+                <GameGrid
+                  gridSize={match.config.gridSize}
+                  token={gs.token}
+                  target={gs.target}
+                  traps={gs.traps}
+                  showTarget={match.target_revealed}
+                  showTraps={false}
+                  color={gs.color}
+                />
+
+                <p className="text-sm text-white/50 mt-2">
+                  Moves left: {gs.moves_remaining}
+                </p>
+
+                {gs.status === 'ACTIVE' && (
+                  <button
+                    type="button"
+                    onClick={() => gameService.skipTurn(match.id, gs.team_id).then(refresh)}
+                    className="mt-2 text-xs px-3 py-1 rounded-lg bg-white/10 border border-white/20 text-white/60 hover:text-white"
+                  >
+                    ⏭ Skip stuck turn
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex gap-4">
           <button
@@ -487,9 +559,7 @@ export function Host() {
 
         <button
           type="button"
-          onClick={() =>
-            window.location.reload()
-          }
+          onClick={() => navigate('/')}
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold"
         >
           New Match

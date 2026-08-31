@@ -27,10 +27,10 @@ class AudioManagerImpl {
   }
 
   private musicSrc(track: Track) {
-    return `/audio/bgm/${track === 'gameplay' ? 'gameplay' : track}.mp3`
+    return `/audio/bgm/${track === 'gameplay' ? 'gameplay' : track}.ogg`
   }
   private sfxSrc(sfx: Sfx) {
-    return `/audio/sfx/${sfx}.mp3`
+    return `/audio/sfx/${sfx}.ogg`
   }
 
   playMusic(track: Track, opts: { loop?: boolean; fadeMs?: number } = {}) {

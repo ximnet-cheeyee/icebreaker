@@ -41,7 +41,7 @@ export function Timer({ startedAtMs, durationSeconds, onExpire, className = '' }
 
   return (
     <div
-      className={`font-mono font-black tabular-nums ${urgent ? 'text-red-400 animate-pulse' : 'text-white'} ${className}`}
+      className={`font-mono font-black tabular-nums transition-colors duration-300 ${urgent ? 'text-red-400 animate-pulse drop-shadow-[0_0_20px_rgba(248,113,113,0.6)]' : 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]'} ${className}`}
     >
       {mins}:{secs.toString().padStart(2, '0')}
     </div>
